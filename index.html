@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>War Thunder Datamine - Data Changes Tracker</title>
+    
+    <!-- Critical CSS inlined for faster rendering -->
+    <style>
+        :root {
+            --primary-color: #29b6f6;
+            --secondary-color: #263238;
+            --background-color: #0a1929;
+            --card-bg-color: rgba(38, 50, 56, 0.8);
+            --text-color: #eceff1;
+        }
+        body { 
+            background-color: var(--background-color); 
+            color: var(--text-color);
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        .loader {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 300px;
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(41, 182, 246, 0.2);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1.5s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+    
+    <!-- Preload critical fonts and resources -->
+    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin>
+    
+    <!-- Preconnect to external domains -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="preconnect" href="https://api.github.com">
+    
+    <!-- Defer non-critical CSS but prioritize FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css" media="print" onload="this.media='all'">
+    
+    <!-- Add a meta description for better SEO -->
+    <meta name="description" content="Track the latest changes to War Thunder game files with AI-powered analysis of buffs and nerfs">
+    
+    <!-- Fallback for browsers that don't support JS loading of CSS -->
+    <noscript>
+        <link rel="stylesheet" href="styles.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css">
+    </noscript>
+</head>
+<body>
+    <div class="background-animation" aria-hidden="true"></div>
+    
+    <header>
+        <div class="logo">
+            <span class="logo-text">WT</span>
+            <span class="logo-sub">DATAMINE</span>
+        </div>
+        <div class="search-container">
+            <input type="text" id="search-input" placeholder="Search for any game item or change..." aria-label="Search">
+            <button id="search-button" aria-label="Search"><i class="fas fa-search"></i></button>
+        </div>
+    </header>
+
+    <main>
+        <div class="unified-view">
+            <div class="unified-header">
+                <h2 class="view-title">War Thunder Datamine Tracker</h2>
+                <div class="sort-options">
+                    <span class="sort-label">Sort by:</span>
+                    <select id="sort-select" class="sort-select" aria-label="Sort options">
+                        <option value="date-desc">Newest First</option>
+                        <option value="date-asc">Oldest First</option>
+                        <option value="name-asc">Name (A-Z)</option>
+                        <option value="name-desc">Name (Z-A)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="category-tabs" role="tablist">
+                <button class="category-tab active" data-category="all" role="tab" aria-selected="true">
+                    <i class="fas fa-layer-group"></i>
+                    <span>All Changes</span>
+                </button>
+                <button class="category-tab" data-category="added" role="tab" aria-selected="false">
+                    <i class="fas fa-plus-circle"></i>
+                    <span>Recently Added</span>
+                </button>
+                <button class="category-tab" data-category="removed" role="tab" aria-selected="false">
+                    <i class="fas fa-minus-circle"></i>
+                    <span>Recently Removed</span>
+                </button>
+                <button class="category-tab" data-category="modified" role="tab" aria-selected="false">
+                    <i class="fas fa-edit"></i>
+                    <span>Recently Updated</span>
+                </button>
+            </div>
+
+            <div class="changes-container">
+                <div class="loader" id="main-loader">
+                    <div class="spinner"></div>
+                    <p>Fetching latest changes...</p>
+                </div>
+                <div id="skeleton-container" style="display: none;">
+                    <!-- Skeleton placeholders will be injected here -->
+                </div>
+                <div id="changes-list"></div>
+            </div>
+        </div>
+    </main>
+
+    <div id="diff-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="diff-title">File Changes</h2>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="diff-info">
+                    <div class="file-info">
+                        <span id="file-path"></span>
+                        <span id="change-type" class="badge"></span>
+                    </div>
+                    <div class="commit-info">
+                        <span id="commit-date"></span>
+                        <span id="commit-author"></span>
+                    </div>
+                </div>
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="diff-view">Diff View</button>
+                    <button class="tab-btn" data-tab="ai-insights">AI Analysis</button>
+                </div>
+                <div id="diff-view" class="tab-content active">
+                    <div class="diff-container">
+                        <pre><code id="diff-code"></code></pre>
+                    </div>
+                </div>
+                <div id="ai-insights" class="tab-content">
+                    <div class="insight-container">
+                        <div class="ai-badge">
+                            <i class="fas fa-robot"></i>
+                            <span>AI ANALYSIS</span>
+                        </div>
+                        <div class="insight-header">
+                            <h3>Change Impact Assessment</h3>
+                        </div>
+                        <div class="insight-content">
+                            <p id="insight-summary" class="typing-animation"></p>
+                            <div class="impact-analysis">
+                                <div class="impact-item" id="buff-analysis">
+                                    <span class="impact-label">Buffs:</span>
+                                    <ul id="buffs-list"></ul>
+                                </div>
+                                <div class="impact-item" id="nerf-analysis">
+                                    <span class="impact-label">Nerfs:</span>
+                                    <ul id="nerfs-list"></ul>
+                                </div>
+                                <div class="impact-item" id="other-analysis">
+                                    <span class="impact-label">Other Changes:</span>
+                                    <ul id="other-changes-list"></ul>
+                                </div>
+                            </div>
+                            <!-- Confidence meter will be added here by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>Data sourced from <a href="https://github.com/gszabi99/War-Thunder-Datamine" target="_blank" rel="noopener">War Thunder Datamine</a></p>
+        <p>This site is not affiliated with Gaijin Entertainment</p>
+    </footer>
+
+    <!-- Defer JS loading but make them load in the right order -->
+    <script>
+        // Inline critical initialization
+        window.addEventListener('DOMContentLoaded', function() {
+            // Define a basic showSkeletons function that will be replaced when the main script loads
+            window.showSkeletons = function(count = 6) {
+                const skeletonContainer = document.getElementById('skeleton-container');
+                if (!skeletonContainer) return;
+                
+                // Clear any existing skeletons
+                skeletonContainer.innerHTML = '';
+                
+                // Create skeleton cards
+                for (let i = 0; i < count; i++) {
+                    const skeletonCard = document.createElement('div');
+                    skeletonCard.className = 'skeleton-card';
+                    skeletonCard.innerHTML = `
+                        <div class="skeleton-icon"></div>
+                        <div class="skeleton-content">
+                            <div class="skeleton skeleton-title"></div>
+                            <div class="skeleton skeleton-description"></div>
+                            <div class="skeleton skeleton-description-2"></div>
+                            <div class="skeleton skeleton-footer"></div>
+                        </div>
+                    `;
+                    skeletonContainer.appendChild(skeletonCard);
+                }
+                
+                // Show skeletons
+                skeletonContainer.style.display = 'grid';
+                skeletonContainer.className = 'cards-container';
+            };
+            
+            // Define a basic UI interactions function that will be replaced
+            window.initializeUIInteractions = function() {
+                console.log('Basic UI initialization until main script loads');
+            };
+            
+            // Show skeletons while loading
+            showSkeletons(6);
+        });
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/diff/5.1.0/diff.min.js" defer></script>
+    <script src="optimized-script.js" defer></script>
+</body>
+</html>
