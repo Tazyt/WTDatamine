@@ -1,13 +1,10 @@
-// Hard–obfuscated GitHub token
-const GITHUB_TOKEN = (() => {
-    const parts = [
-        'Z2l0aHVi','X3BhdF8x','MUFVMjI1','NEkwbW5a','SHd3THUz',
-        'eml1X2hx','VTV2anM4','NFVQblI1','NWxWelND','SmFoaHNm',
-        'MDBZWWpO','bVRQcW9w','WEJZdVU2','Rkw2RjNt','M3ZTaUFF'
-    ];
-    // reverse, rejoin and decode
-    return atob(parts.reverse().join(''));
-})();
+// toggle GitHub token usage
+const USE_GITHUB_TOKEN = true;
+let GITHUB_TOKEN = '';
+if (USE_GITHUB_TOKEN) {
+    GITHUB_TOKEN = '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';
+}
+
 const REPO_OWNER = 'gszabi99';
 const REPO_NAME = 'War-Thunder-Datamine';
 
@@ -150,6 +147,7 @@ async function init() {
         // Initialize UI elements that can be interactive before data loads
         initializeUIInteractions();
         
+        showLoader();              // ← show spinner
         // Show skeleton loaders
         showSkeletons(8);
         
@@ -161,11 +159,12 @@ async function init() {
             allChanges = cachedData;
             filteredChanges = [...allChanges];
             isDataLoaded = true;
-            hideLoader();
-            hideSkeletons();
-            renderChanges();
             
-            // Load fresh data in the background
+            hideLoader();         // ← hide spinner
+            hideSkeletons();    // hide skeletons first
+            renderChanges();    // then render cards
+
+            // refresh in background
             fetchLatestChanges().then(() => {
                 // Only re-render if there are changes
                 if (JSON.stringify(cachedData) !== JSON.stringify(allChanges)) {
@@ -177,9 +176,10 @@ async function init() {
             // No cached data, load from API
             await fetchLatestChanges();
             isDataLoaded = true;
-            hideLoader();
-            hideSkeletons();
-            renderChanges();
+
+            hideLoader();         // ← hide spinner
+            hideSkeletons();    // hide skeletons first
+            renderChanges();    // then render cards
         }
         
         // Initialize AI model in the background after content is displayed
@@ -190,6 +190,7 @@ async function init() {
     } catch (error) {
         console.error('Initialization error:', error);
         showError('Failed to load changes. Please try again later.');
+        hideLoader();             // ← hide spinner on error
         hideSkeletons();
     }
 }
@@ -215,24 +216,21 @@ async function initAIModel() {
 // API Functions with performance optimizations
 async function fetchLatestChanges() {
     try {
-        // Show loading UI
-        isLoading = true;
-        
-        // Use Promise.all to parallelize requests where possible
-        const commitsPromise = fetch(
+        const headers = { 'Accept': 'application/vnd.github.v3+json' };
+        if (USE_GITHUB_TOKEN && GITHUB_TOKEN) {
+            headers.Authorization = `Bearer ${GITHUB_TOKEN}`;
+        }
+        const commits = await fetch(
             `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/commits?per_page=30`,
-            {
-                headers: {
-                    'Authorization': `Bearer ${GITHUB_TOKEN}`,
-                    'Accept': 'application/vnd.github.v3+json'
-                }
-            }
+            { headers }
         ).then(response => {
-            if (!response.ok) throw new Error('Failed to fetch commits');
+            if (response.status === 401) {
+                showError('Unauthorized: invalid GitHub token');
+                throw new Error('Unauthorized');
+            }
+            if (!response.ok) throw new Error(`Failed to fetch commits (status ${response.status})`);
             return response.json();
         });
-        
-        const commits = await commitsPromise;
         
         // Use a temporary array to collect all promises
         const commitDetailsPromises = [];
@@ -318,6 +316,7 @@ async function fetchLatestChanges() {
     }
 }
 
+
 // Show skeleton loaders for better perceived performance - fixed layout
 function showSkeletons(count = 6) {
     if (!skeletonContainer) return;
@@ -349,9 +348,10 @@ function showSkeletons(count = 6) {
 
 // Hide skeleton loaders
 function hideSkeletons() {
-    if (skeletonContainer) {
-        skeletonContainer.style.display = 'none';
-    }
+    if (!skeletonContainer) return;
+    // clear and hide
+    skeletonContainer.innerHTML = '';
+    skeletonContainer.style.display = 'none';
 }
 
 // Filter changes by selected category
@@ -384,6 +384,9 @@ function filterChangesByCategory() {
 
 // Optimized UI rendering with progressive loading for the 3-column grid
 function renderChanges() {
+    // ensure skeletons gone before drawing cards
+    hideSkeletons();
+
     const startTime = performance.now();
     changesList.innerHTML = '';
     
@@ -1046,15 +1049,15 @@ function initAIModel() {
     }
 }
 
-// Register service worker for additional performance benefits
-if ('serviceWorker' in navigator) {
+// Register service worker only on http(s)
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js').then(registration => {
-            console.log('ServiceWorker registration successful');
-        }).catch(error => {
-            console.log('ServiceWorker registration failed:', error);
-        });
+        navigator.serviceWorker.register('/service-worker.js')
+        .then(() => console.log('ServiceWorker registration successful'))
+        .catch(err => console.warn('ServiceWorker failed:', err));
     });
+} else {
+    console.warn('Skipping ServiceWorker on unsupported origin:', location.protocol);
 }
 
 // Close modal with animation
